@@ -99,8 +99,28 @@ const EventManager: React.FC<EventManagerProps> = ({ events, setEvents, drinks, 
             }
         }
     }
+    
+    // 2. Validate stock levels before deduction
+    const insufficientStock: string[] = [];
+    for (const [ingredientId, neededQuantity] of ingredientUsage.entries()) {
+        const ingredient = ingredientMap.get(ingredientId);
+        if (ingredient) {
+            const totalStock = ingredient.stockEntries.reduce((sum, entry) => sum + entry.remainingQuantity, 0);
+            if (totalStock < neededQuantity) {
+                insufficientStock.push(`- ${ingredient.name}: Precisa de ${neededQuantity.toFixed(2)} ${ingredient.unit}, disponível ${totalStock.toFixed(2)} ${ingredient.unit}`);
+            }
+        } else {
+            insufficientStock.push(`- Insumo com ID ${ingredientId} não encontrado.`);
+        }
+    }
 
-    // 2. Deduct from stock using FIFO
+    if (insufficientStock.length > 0) {
+        alert(`Não é possível concluir o evento. Estoque insuficiente:\n\n${insufficientStock.join('\n')}`);
+        return; // Abort completion
+    }
+
+
+    // 3. Deduct from stock using FIFO
     setIngredients(prevIngredients => {
       const newIngredients = JSON.parse(JSON.stringify(prevIngredients));
 
@@ -122,7 +142,7 @@ const EventManager: React.FC<EventManagerProps> = ({ events, setEvents, drinks, 
       return newIngredients;
     });
     
-    // 3. Update event status
+    // 4. Update event status
     setEvents(prevEvents =>
         prevEvents.map(e => (e.id === eventId ? { ...e, status: 'completed' } : e))
     );

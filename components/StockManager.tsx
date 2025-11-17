@@ -174,7 +174,8 @@ const StockManager: React.FC<StockManagerProps> = ({ ingredients, setIngredients
                 const isLowStock = ing.lowStockThreshold && totalStock < ing.lowStockThreshold;
                 return (
                   <tr key={ing.id} className={`border-b border-gray-700 ${isLowStock ? 'bg-red-900/30' : 'hover:bg-gray-700/50'}`}>
-                    <td className="p-3 font-medium flex items-center gap-2">{ing.name} {isLowStock && <AlertTriangle className="text-red-400" size={16} title="Estoque baixo!" />}</td>
+                    {/* FIX: The `title` prop is not valid on lucide-react icons. Wrap the icon in a `span` with a `title` attribute to show a tooltip. */}
+                    <td className="p-3 font-medium flex items-center gap-2">{ing.name} {isLowStock && <span title="Estoque baixo!"><AlertTriangle className="text-red-400" size={16} /></span>}</td>
                     <td className="p-3 font-medium">{totalStock.toFixed(2)} {ing.unit}</td>
                     <td className="p-3">{formatCurrency(avgCost)} / {ing.unit}</td>
                     <td className="p-3 font-semibold">{formatCurrency(totalValue)}</td>

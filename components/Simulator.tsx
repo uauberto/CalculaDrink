@@ -277,7 +277,7 @@ const Simulator: React.FC<SimulatorProps> = ({ drinks, ingredients, setEvents })
             <div className="w-full h-80">
               <h4 className="text-lg font-semibold mb-4 text-center text-gray-300">Composição do Preço Final</h4>
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={chartData} layout="vertical" margin={{ top: 5, right: 20, left: 20, bottom: 5 }}>
+                  <BarChart data={chartData} layout="vertical" margin={{ top: 5, right: 20, left: 50, bottom: 5 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#4a5568" />
                     <XAxis type="number" stroke="#a0aec0" tickFormatter={formatCurrency} />
                     <YAxis type="category" dataKey="name" stroke="#a0aec0" width={80}/>
