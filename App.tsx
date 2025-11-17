@@ -60,7 +60,6 @@ const App: React.FC = () => {
       
       <main className="container mx-auto p-4 sm:p-6 lg:p-8">
         <div className="bg-gray-900 border-b border-gray-700 mb-6">
-          {/* FIX: Complete the nav tag and its children */}
           <nav className="flex -mb-px">
             <TabButton tab="simulator" label="Simulador" icon={<Calculator size={18} />} />
             <TabButton tab="events" label="Eventos" icon={<Calendar size={18} />} />
@@ -75,5 +74,4 @@ const App: React.FC = () => {
   );
 };
 
-// FIX: Add default export for the App component
 export default App;

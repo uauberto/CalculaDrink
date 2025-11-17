@@ -174,12 +174,23 @@ const StockManager: React.FC<StockManagerProps> = ({ ingredients, setIngredients
                 const isLowStock = ing.lowStockThreshold && totalStock < ing.lowStockThreshold;
                 return (
                   <tr key={ing.id} className={`border-b border-gray-700 ${isLowStock ? 'bg-red-900/30' : 'hover:bg-gray-700/50'}`}>
-                    {/* FIX: The `title` prop is not valid on lucide-react icons. Wrap the icon in a `span` with a `title` attribute to show a tooltip. */}
                     <td className="p-3 font-medium flex items-center gap-2">{ing.name} {isLowStock && <span title="Estoque baixo!"><AlertTriangle className="text-red-400" size={16} /></span>}</td>
                     <td className="p-3 font-medium">{totalStock.toFixed(2)} {ing.unit}</td>
                     <td className="p-3">{formatCurrency(avgCost)} / {ing.unit}</td>
                     <td className="p-3 font-semibold">{formatCurrency(totalValue)}</td>
-                    <td className="p-3"><div className="flex gap-2"><button onClick={() => setAddStockModal(ing)} className="p-2 text-green-400 hover:text-green-300" title="Adicionar Estoque"><PackagePlus size={18} /></button><button onClick={() => setHistoryModal(ing)} className="p-2 text-blue-400 hover:text-blue-300" title="Ver Histórico"><History size={18} /></button><button onClick={() => setAdjustStockModal(ing)} className="p-2 text-yellow-400 hover:text-yellow-300" title="Ajustar Estoque"><MinusCircle size={18} /></button></div></td>
+                    <td className="p-3">
+                      <div className="flex gap-2">
+                        <button onClick={() => setAddStockModal(ing)} className="p-2 text-green-400 hover:text-green-300" aria-label="Adicionar Estoque">
+                          <span title="Adicionar Estoque"><PackagePlus size={18} /></span>
+                        </button>
+                        <button onClick={() => setHistoryModal(ing)} className="p-2 text-blue-400 hover:text-blue-300" aria-label="Ver Histórico">
+                          <span title="Ver Histórico"><History size={18} /></span>
+                        </button>
+                        <button onClick={() => setAdjustStockModal(ing)} className="p-2 text-yellow-400 hover:text-yellow-300" aria-label="Ajustar Estoque">
+                          <span title="Ajustar Estoque"><MinusCircle size={18} /></span>
+                        </button>
+                      </div>
+                    </td>
                   </tr>
                 );
               })}
@@ -198,7 +209,17 @@ const StockManager: React.FC<StockManagerProps> = ({ ingredients, setIngredients
                       <p className="text-sm text-gray-300">Valor Total: <span className="font-semibold">{formatCurrency(totalValue)}</span></p>
                       <p className="text-xs text-gray-400">Custo Médio: {formatCurrency(avgCost)} / {ing.unit}</p>
                     </div>
-                    <div className="flex gap-1"><button onClick={() => setAddStockModal(ing)} className="p-2 text-green-400" title="Adicionar Estoque"><PackagePlus size={20} /></button><button onClick={() => setHistoryModal(ing)} className="p-2 text-blue-400" title="Ver Histórico"><History size={20} /></button><button onClick={() => setAdjustStockModal(ing)} className="p-2 text-yellow-400" title="Ajustar Estoque"><MinusCircle size={20} /></button></div>
+                    <div className="flex gap-1">
+                      <button onClick={() => setAddStockModal(ing)} className="p-2 text-green-400" aria-label="Adicionar Estoque">
+                        <span title="Adicionar Estoque"><PackagePlus size={20} /></span>
+                      </button>
+                      <button onClick={() => setHistoryModal(ing)} className="p-2 text-blue-400" aria-label="Ver Histórico">
+                        <span title="Ver Histórico"><History size={20} /></span>
+                      </button>
+                      <button onClick={() => setAdjustStockModal(ing)} className="p-2 text-yellow-400" aria-label="Ajustar Estoque">
+                        <span title="Ajustar Estoque"><MinusCircle size={20} /></span>
+                      </button>
+                    </div>
                   </div>
                 </div>
               );
