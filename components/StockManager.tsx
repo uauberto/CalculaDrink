@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import type { Ingredient, StockEntry } from '../types';
+import type { Ingredient, StockEntry } from '../types.ts';
 import { PackagePlus, History, X, AlertTriangle, MinusCircle } from 'lucide-react';
 
 interface StockManagerProps {

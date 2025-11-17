@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import type { Drink, Ingredient, StaffMember, Event } from '../types';
+import type { Drink, Ingredient, StaffMember, Event } from '../types.ts';
 import { Plus, Trash2, Users, Target, BarChart2, Save, X, Clock } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 

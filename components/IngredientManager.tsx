@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import type { Ingredient } from '../types';
+import type { Ingredient } from '../types.ts';
 import { Plus, Trash2, Edit } from 'lucide-react';
 
 interface IngredientManagerProps {
