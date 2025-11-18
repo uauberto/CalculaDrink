@@ -1,12 +1,12 @@
 
 import React, { useState } from 'react';
-import type { Drink, Ingredient, Event } from './types';
-import { useLocalStorage } from './hooks/useLocalStorage';
-import IngredientManager from './components/IngredientManager';
-import DrinkManager from './components/DrinkManager';
-import Simulator from './components/Simulator';
-import EventManager from './components/EventManager';
-import StockManager from './components/StockManager';
+import type { Drink, Ingredient, Event } from './types.ts';
+import { useLocalStorage } from './hooks/useLocalStorage.ts';
+import IngredientManager from './components/IngredientManager.tsx';
+import DrinkManager from './components/DrinkManager.tsx';
+import Simulator from './components/Simulator.tsx';
+import EventManager from './components/EventManager.tsx';
+import StockManager from './components/StockManager.tsx';
 import { Martini, Droplets, Calculator, Calendar, Package } from 'lucide-react';
 
 type Tab = 'ingredients' | 'drinks' | 'simulator' | 'events' | 'stock';

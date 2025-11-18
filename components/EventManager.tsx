@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import type { Event, Drink, Ingredient } from '../types';
+import type { Event, Drink, Ingredient } from '../types.ts';
 import { Plus, Trash2, CheckSquare, X, Users, Calendar, DollarSign, Clock } from 'lucide-react';
 
 interface EventManagerProps {
