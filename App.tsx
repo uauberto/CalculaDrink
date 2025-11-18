@@ -1,12 +1,12 @@
 
 import React, { useState } from 'react';
-import type { Drink, Ingredient, Event } from './types.ts';
-import { useLocalStorage } from './hooks/useLocalStorage.ts';
-import IngredientManager from './components/IngredientManager.tsx';
-import DrinkManager from './components/DrinkManager.tsx';
-import Simulator from './components/Simulator.tsx';
-import EventManager from './components/EventManager.tsx';
-import StockManager from './components/StockManager.tsx';
+import type { Drink, Ingredient, Event } from './types';
+import { useLocalStorage } from './hooks/useLocalStorage';
+import IngredientManager from './components/IngredientManager';
+import DrinkManager from './components/DrinkManager';
+import Simulator from './components/Simulator';
+import EventManager from './components/EventManager';
+import StockManager from './components/StockManager';
 import { Martini, Droplets, Calculator, Calendar, Package } from 'lucide-react';
 
 type Tab = 'ingredients' | 'drinks' | 'simulator' | 'events' | 'stock';
@@ -60,6 +60,7 @@ const App: React.FC = () => {
       
       <main className="container mx-auto p-4 sm:p-6 lg:p-8">
         <div className="bg-gray-900 border-b border-gray-700 mb-6">
+          {/* FIX: Complete the nav tag and its children */}
           <nav className="flex -mb-px">
             <TabButton tab="simulator" label="Simulador" icon={<Calculator size={18} />} />
             <TabButton tab="events" label="Eventos" icon={<Calendar size={18} />} />
@@ -74,4 +75,5 @@ const App: React.FC = () => {
   );
 };
 
+// FIX: Add default export for the App component
 export default App;

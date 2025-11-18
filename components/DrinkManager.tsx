@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import type { Drink, DrinkIngredient, Ingredient } from '../types.ts';
+import type { Drink, DrinkIngredient, Ingredient } from '../types';
 import { Plus, Trash2, Edit, X, TrendingUp } from 'lucide-react';
 
 interface DrinkManagerProps {

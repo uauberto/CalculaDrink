@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import type { Event, Drink, Ingredient } from '../types.ts';
+import type { Event, Drink, Ingredient } from '../types';
 import { Plus, Trash2, CheckSquare, X, Users, Calendar, DollarSign, Clock } from 'lucide-react';
 
 interface EventManagerProps {
@@ -99,28 +99,8 @@ const EventManager: React.FC<EventManagerProps> = ({ events, setEvents, drinks, 
             }
         }
     }
-    
-    // 2. Validate stock levels before deduction
-    const insufficientStock: string[] = [];
-    for (const [ingredientId, neededQuantity] of ingredientUsage.entries()) {
-        const ingredient = ingredientMap.get(ingredientId);
-        if (ingredient) {
-            const totalStock = ingredient.stockEntries.reduce((sum, entry) => sum + entry.remainingQuantity, 0);
-            if (totalStock < neededQuantity) {
-                insufficientStock.push(`- ${ingredient.name}: Precisa de ${neededQuantity.toFixed(2)} ${ingredient.unit}, disponível ${totalStock.toFixed(2)} ${ingredient.unit}`);
-            }
-        } else {
-            insufficientStock.push(`- Insumo com ID ${ingredientId} não encontrado.`);
-        }
-    }
 
-    if (insufficientStock.length > 0) {
-        alert(`Não é possível concluir o evento. Estoque insuficiente:\n\n${insufficientStock.join('\n')}`);
-        return; // Abort completion
-    }
-
-
-    // 3. Deduct from stock using FIFO
+    // 2. Deduct from stock using FIFO
     setIngredients(prevIngredients => {
       const newIngredients = JSON.parse(JSON.stringify(prevIngredients));
 
@@ -142,7 +122,7 @@ const EventManager: React.FC<EventManagerProps> = ({ events, setEvents, drinks, 
       return newIngredients;
     });
     
-    // 4. Update event status
+    // 3. Update event status
     setEvents(prevEvents =>
         prevEvents.map(e => (e.id === eventId ? { ...e, status: 'completed' } : e))
     );
