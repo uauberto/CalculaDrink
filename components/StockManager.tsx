@@ -1,25 +1,36 @@
-import React, { useState, useMemo } from 'react';
-import type { Ingredient, StockEntry } from '../types.ts';
-import { PackagePlus, History, X, AlertTriangle, MinusCircle } from 'lucide-react';
+
+import React, { useState, useRef } from 'react';
+import type { Ingredient, StockEntry, Company } from '../types.ts';
+import { PackagePlus, History, X, AlertTriangle, MinusCircle, Upload, FileSpreadsheet } from 'lucide-react';
+import { useLocalStorage } from '../hooks/useLocalStorage.ts';
+import { api } from '../lib/supabase.ts';
+import { ENABLE_DATABASE } from '../config.ts';
+import Papa from 'papaparse';
 
 interface StockManagerProps {
   ingredients: Ingredient[];
   setIngredients: React.Dispatch<React.SetStateAction<Ingredient[]>>;
+  company: Company;
 }
 
-const StockManager: React.FC<StockManagerProps> = ({ ingredients, setIngredients }) => {
+const StockManager: React.FC<StockManagerProps> = ({ ingredients, setIngredients, company }) => {
   const [addStockModal, setAddStockModal] = useState<Ingredient | null>(null);
   const [historyModal, setHistoryModal] = useState<Ingredient | null>(null);
   const [adjustStockModal, setAdjustStockModal] = useState<Ingredient | null>(null);
   const [adjustmentAmount, setAdjustmentAmount] = useState<number>(0);
-  const [newEntry, setNewEntry] = useState({ date: new Date().toISOString().split('T')[0], quantity: 0, price: 0 });
+  
+  // Persist new entry form data
+  const [newEntry, setNewEntry] = useLocalStorage<{date: string, quantity: number, price: number}>(`${company.id}_stock_new`, { date: new Date().toISOString().split('T')[0], quantity: 0, price: 0 });
+  
   const [searchTerm, setSearchTerm] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [importLoading, setImportLoading] = useState(false);
 
   const formatCurrency = (value: number) => {
     return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   };
 
-  const handleAddStockEntry = () => {
+  const handleAddStockEntry = async () => {
     if (!addStockModal || newEntry.quantity <= 0 || newEntry.price <= 0) return;
 
     const newStockEntry: StockEntry = {
@@ -30,17 +41,35 @@ const StockManager: React.FC<StockManagerProps> = ({ ingredients, setIngredients
       remainingQuantity: newEntry.quantity,
     };
 
-    setIngredients(ingredients.map(ing =>
-        ing.id === addStockModal.id
-          ? { ...ing, stockEntries: [...ing.stockEntries, newStockEntry] }
-          : ing
-    ));
+    // 1. Create the updated ingredient object
+    const targetIngredientIndex = ingredients.findIndex(i => i.id === addStockModal.id);
+    if (targetIngredientIndex === -1) return;
+
+    const targetIngredient = ingredients[targetIngredientIndex];
+    const updatedIngredient: Ingredient = {
+        ...targetIngredient,
+        stockEntries: [...targetIngredient.stockEntries, newStockEntry]
+    };
+
+    // 2. Update Local State (Optimistic UI)
+    setIngredients(prev => prev.map(ing => ing.id === updatedIngredient.id ? updatedIngredient : ing));
+
+    // 3. Persist to Database
+    if (ENABLE_DATABASE) {
+        try {
+            await api.ingredients.save(company.id, updatedIngredient);
+        } catch (error) {
+            console.error("Failed to save stock entry:", error);
+            // Optionally revert state here if strict consistency is needed
+            alert("Erro ao salvar no banco de dados. Verifique sua conexão.");
+        }
+    }
 
     setAddStockModal(null);
     setNewEntry({ date: new Date().toISOString().split('T')[0], quantity: 0, price: 0 });
   };
   
-  const handleAdjustStock = () => {
+  const handleAdjustStock = async () => {
     if (!adjustStockModal || adjustmentAmount <= 0) return;
 
     const totalStock = calculateStockInfo(adjustStockModal).totalStock;
@@ -49,26 +78,38 @@ const StockManager: React.FC<StockManagerProps> = ({ ingredients, setIngredients
         return;
     }
 
-    setIngredients(prevIngredients => {
-        const newIngredients = JSON.parse(JSON.stringify(prevIngredients));
-        const ing = newIngredients.find((i: Ingredient) => i.id === adjustStockModal.id);
+    // 1. Clone and perform FIFO logic
+    const targetIngredientIndex = ingredients.findIndex(i => i.id === adjustStockModal.id);
+    if (targetIngredientIndex === -1) return;
 
-        if (ing) {
-            let quantityToRemove = adjustmentAmount;
-            
-            // Sort entries by date to ensure FIFO
-            ing.stockEntries.sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
-            
-            for (const entry of ing.stockEntries) {
-                if (quantityToRemove <= 0) break;
+    // Deep copy to avoid mutating state directly before setting it
+    const updatedIngredient: Ingredient = JSON.parse(JSON.stringify(ingredients[targetIngredientIndex]));
+    
+    let quantityToRemove = adjustmentAmount;
+    
+    // Sort entries by date to ensure FIFO (Oldest first)
+    updatedIngredient.stockEntries.sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    
+    for (const entry of updatedIngredient.stockEntries) {
+        if (quantityToRemove <= 0) break;
 
-                const amountToDeduct = Math.min(quantityToRemove, entry.remainingQuantity);
-                entry.remainingQuantity -= amountToDeduct;
-                quantityToRemove -= amountToDeduct;
-            }
+        const amountToDeduct = Math.min(quantityToRemove, entry.remainingQuantity);
+        entry.remainingQuantity -= amountToDeduct;
+        quantityToRemove -= amountToDeduct;
+    }
+
+    // 2. Update Local State
+    setIngredients(prev => prev.map(ing => ing.id === updatedIngredient.id ? updatedIngredient : ing));
+
+    // 3. Persist to Database
+    if (ENABLE_DATABASE) {
+        try {
+            await api.ingredients.save(company.id, updatedIngredient);
+        } catch (error) {
+            console.error("Failed to adjust stock:", error);
+            alert("Erro ao atualizar estoque no banco de dados.");
         }
-        return newIngredients;
-    });
+    }
 
     setAdjustStockModal(null);
     setAdjustmentAmount(0);
@@ -83,6 +124,87 @@ const StockManager: React.FC<StockManagerProps> = ({ ingredients, setIngredients
     }, 0);
     const avgCost = totalStock > 0 ? totalValue / totalStock : 0;
     return { totalStock, avgCost, totalValue };
+  };
+
+   // --- CSV IMPORT LOGIC ---
+   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setImportLoading(true);
+
+    Papa.parse(file, {
+        header: true,
+        skipEmptyLines: true,
+        complete: async (results) => {
+            let successCount = 0;
+            let errorCount = 0;
+            const updatedIngredientsMap = new Map<string, Ingredient>();
+
+            // Clone ingredients to map for quick access and updates
+            ingredients.forEach(ing => updatedIngredientsMap.set(ing.name.toLowerCase(), { ...ing }));
+
+            for (const row of results.data as any[]) {
+                const name = row['Insumo'] || row['insumo'] || row['Ingredient'];
+                const date = row['Data'] || row['data'] || row['Date'];
+                const quantity = parseFloat(row['Quantidade'] || row['quantidade'] || row['Quantity']);
+                const price = parseFloat(row['Preco'] || row['preco'] || row['Price']);
+
+                if (name && quantity > 0 && price >= 0) {
+                    const ingredient = updatedIngredientsMap.get(name.toLowerCase());
+                    
+                    if (ingredient) {
+                        const newEntry: StockEntry = {
+                            id: crypto.randomUUID(),
+                            date: date || new Date().toISOString().split('T')[0],
+                            quantity: quantity,
+                            price: price,
+                            remainingQuantity: quantity
+                        };
+                        
+                        ingredient.stockEntries.push(newEntry);
+                        updatedIngredientsMap.set(name.toLowerCase(), ingredient);
+                        successCount++;
+                    } else {
+                        console.warn(`Insumo não encontrado: ${name}`);
+                        errorCount++;
+                    }
+                } else {
+                    errorCount++;
+                }
+            }
+
+            // Conver map back to array
+            const newIngredientsList = Array.from(updatedIngredientsMap.values());
+            
+            // Update State
+            setIngredients(newIngredientsList);
+
+            // Save to DB (Bulk or loop)
+            if (ENABLE_DATABASE) {
+                // Note: Ideally we should have a bulk update API, but for now we loop through changed items
+                // To avoid hammering the API, we only save ingredients that actually changed.
+                // For simplicity in this context, we might just alert user or save all.
+                // Let's try to save only the modified ones
+                for (const ing of newIngredientsList) {
+                     // Check if it was modified (basic check)
+                     const original = ingredients.find(i => i.id === ing.id);
+                     if (original && original.stockEntries.length !== ing.stockEntries.length) {
+                         await api.ingredients.save(company.id, ing);
+                     }
+                }
+            }
+
+            alert(`Importação concluída!\nEntradas adicionadas: ${successCount}\nErros/Insumos não encontrados: ${errorCount}`);
+            setImportLoading(false);
+            if (fileInputRef.current) fileInputRef.current.value = '';
+        },
+        error: (error) => {
+            console.error(error);
+            alert("Erro ao ler arquivo CSV.");
+            setImportLoading(false);
+        }
+    });
   };
 
   const filteredIngredients = ingredients.filter(ing =>
@@ -161,9 +283,39 @@ const StockManager: React.FC<StockManagerProps> = ({ ingredients, setIngredients
       )}
 
       <div className="p-6 bg-gray-800 rounded-lg shadow-md">
-        <div className="flex flex-col sm:flex-row justify-between sm:items-center mb-4 gap-4">
-            <h2 className="text-2xl font-bold text-orange-400">Controle de Estoque</h2>
-            <input type="text" placeholder="Buscar insumo..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full sm:w-64 bg-gray-700 text-white border border-gray-600 rounded-md px-3 py-2" />
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-4">
+            <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center w-full">
+                 <h2 className="text-2xl font-bold text-orange-400 whitespace-nowrap">Controle de Estoque</h2>
+                 <input type="text" placeholder="Buscar insumo..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full sm:w-64 bg-gray-700 text-white border border-gray-600 rounded-md px-3 py-2" />
+            </div>
+            
+            <div className="flex gap-2">
+                <input 
+                    type="file" 
+                    ref={fileInputRef} 
+                    onChange={handleFileUpload} 
+                    accept=".csv" 
+                    className="hidden" 
+                />
+                <button 
+                    onClick={() => fileInputRef.current?.click()} 
+                    disabled={importLoading}
+                    className="flex items-center gap-2 px-3 py-2 bg-green-700 text-white rounded-md hover:bg-green-600 transition-colors text-sm whitespace-nowrap"
+                    title="CSV: Insumo, Data, Quantidade, Preco"
+                >
+                    {importLoading ? <div className="animate-spin h-4 w-4 border-2 border-white rounded-full border-t-transparent"></div> : <Upload size={16} />}
+                    Importar Estoque
+                </button>
+                 <a 
+                    href="data:text/csv;charset=utf-8,Insumo,Data,Quantidade,Preco%0AVodka,2024-01-10,5,200%0AAçúcar,2024-01-12,2,10" 
+                    download="modelo_estoque.csv"
+                    className="flex items-center gap-2 px-3 py-2 bg-gray-700 text-gray-300 rounded-md hover:bg-gray-600 transition-colors text-sm whitespace-nowrap"
+                    title="Baixar Modelo CSV"
+                >
+                    <FileSpreadsheet size={16} />
+                    Modelo
+                </a>
+            </div>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left hidden md:table">
@@ -174,7 +326,7 @@ const StockManager: React.FC<StockManagerProps> = ({ ingredients, setIngredients
                 const isLowStock = ing.lowStockThreshold && totalStock < ing.lowStockThreshold;
                 return (
                   <tr key={ing.id} className={`border-b border-gray-700 ${isLowStock ? 'bg-red-900/30' : 'hover:bg-gray-700/50'}`}>
-                    <td className="p-3 font-medium flex items-center gap-2">{ing.name} {isLowStock && <AlertTriangle className="text-red-400" size={16} title="Estoque baixo!" />}</td>
+                    <td className="p-3 font-medium flex items-center gap-2">{ing.name} {isLowStock && <span title="Estoque baixo!"><AlertTriangle className="text-red-400" size={16} /></span>}</td>
                     <td className="p-3 font-medium">{totalStock.toFixed(2)} {ing.unit}</td>
                     <td className="p-3">{formatCurrency(avgCost)} / {ing.unit}</td>
                     <td className="p-3 font-semibold">{formatCurrency(totalValue)}</td>

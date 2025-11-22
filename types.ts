@@ -1,3 +1,4 @@
+
 export interface StockEntry {
   id: string;
   date: string; // ISO string for date
@@ -45,6 +46,7 @@ export interface Event {
   numAdults: number;
   numChildren: number;
   selectedDrinks: string[]; // Array of drink IDs
+  staff?: StaffMember[]; // Lista de equipe escalada
   simulatedCosts?: {
     ingredientCost: number;
     operationalCost: number;
@@ -52,4 +54,27 @@ export interface Event {
     profit: number;
     finalPrice: number;
   };
+}
+
+export type CompanyStatus = 'pending_approval' | 'waiting_payment' | 'active' | 'suspended';
+export type PlanType = 'monthly' | 'yearly' | null;
+export type CompanyType = 'PF' | 'PJ';
+export type UserRole = 'admin' | 'manager' | 'bartender';
+
+export interface Company {
+  id: string;
+  name: string; // Nome Fantasia ou Nome Profissional
+  createdAt: string;
+  status: CompanyStatus;
+  plan: PlanType;
+  nextBillingDate: string | null; // ISO string
+  role: UserRole; // Access Level
+  
+  // Novos Campos Robustos
+  type: CompanyType;
+  document: string; // CPF ou CNPJ
+  email: string;
+  phone: string;
+  responsibleName: string; // Nome do responsável ou do próprio PF
+  requiresPasswordChange?: boolean;
 }

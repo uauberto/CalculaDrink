@@ -1,79 +1,138 @@
 
-import React, { useState } from 'react';
-import type { Drink, Ingredient, Event } from './types.ts';
+import React, { useState, useEffect } from 'react';
+import type { Company } from './types.ts';
+import Auth from './components/Auth.tsx';
+import Dashboard from './components/Dashboard.tsx';
+import ApprovalPending from './components/ApprovalPending.tsx';
+import Subscription from './components/Subscription.tsx';
+import MasterDashboard from './components/MasterDashboard.tsx'; // Importar o Dashboard Master
 import { useLocalStorage } from './hooks/useLocalStorage.ts';
-import IngredientManager from './components/IngredientManager.tsx';
-import DrinkManager from './components/DrinkManager.tsx';
-import Simulator from './components/Simulator.tsx';
-import EventManager from './components/EventManager.tsx';
-import StockManager from './components/StockManager.tsx';
-import { Martini, Droplets, Calculator, Calendar, Package } from 'lucide-react';
-
-type Tab = 'ingredients' | 'drinks' | 'simulator' | 'events' | 'stock';
+import { api } from './lib/supabase.ts';
+import { ENABLE_DATABASE, MASTER_EMAIL } from './config.ts';
 
 const App: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<Tab>('simulator');
-  const [ingredients, setIngredients] = useLocalStorage<Ingredient[]>('ingredients', []);
-  const [drinks, setDrinks] = useLocalStorage<Drink[]>('drinks', []);
-  const [events, setEvents] = useLocalStorage<Event[]>('events', []);
+  const [allCompanies, setAllCompanies] = useLocalStorage<Company[]>('registered_companies', []);
+  const [masterView, setMasterView] = useState<'admin' | 'app'>('admin');
+  
+  const [currentCompany, setCurrentCompany] = useState<Company | null>(() => {
+    const saved = localStorage.getItem('current_company_session');
+    return saved ? JSON.parse(saved) : null;
+  });
 
-  const renderContent = () => {
-    switch (activeTab) {
-      case 'ingredients':
-        return <IngredientManager ingredients={ingredients} setIngredients={setIngredients} />;
-      case 'stock':
-        return <StockManager ingredients={ingredients} setIngredients={setIngredients} />;
-      case 'drinks':
-        return <DrinkManager drinks={drinks} setDrinks={setDrinks} ingredients={ingredients} />;
-      case 'simulator':
-        return <Simulator drinks={drinks} ingredients={ingredients} setEvents={setEvents} />;
-      case 'events':
-        return <EventManager events={events} setEvents={setEvents} drinks={drinks} ingredients={ingredients} setIngredients={setIngredients} />;
-      default:
-        return null;
+  // Helper to update company in both session and localStorage list (and Database if enabled)
+  const updateCompanyState = async (updatedCompany: Company) => {
+    // Update session
+    setCurrentCompany(updatedCompany);
+    localStorage.setItem('current_company_session', JSON.stringify(updatedCompany));
+    
+    // Update master list (Local Storage fallback)
+    setAllCompanies(prev => prev.map(c => c.id === updatedCompany.id ? updatedCompany : c));
+
+    // Update Database
+    if (ENABLE_DATABASE) {
+        await api.auth.update(updatedCompany);
     }
   };
 
-  const TabButton = ({ tab, label, icon }: { tab: Tab; label: string; icon: React.ReactNode }) => (
-    <button
-      onClick={() => setActiveTab(tab)}
-      className={`flex-1 flex items-center justify-center gap-2 px-2 sm:px-4 py-3 text-sm md:text-base font-medium rounded-t-lg transition-colors focus:outline-none focus:ring-2 focus:ring-orange-400 ${
-        activeTab === tab ? 'bg-gray-800 text-orange-400' : 'text-gray-400 hover:bg-gray-700 hover:text-white'
-      }`}
-    >
-      {icon}
-      <span className="hidden sm:inline">{label}</span>
-    </button>
-  );
+  const handleLogin = (company: Company) => {
+    // Ensure compatibility with old data that might miss new fields
+    const normalizedCompany: Company = {
+        ...company,
+        status: company.status || 'active', // Default to active for old users
+        plan: company.plan || null,
+        nextBillingDate: company.nextBillingDate || null
+    };
+    
+    // Check for subscription expiration on login
+    // SKIP CHECK IF USER IS MASTER ADMIN
+    if (normalizedCompany.email !== MASTER_EMAIL && normalizedCompany.status === 'active' && normalizedCompany.nextBillingDate) {
+        const now = new Date();
+        const billingDate = new Date(normalizedCompany.nextBillingDate);
+        // Reset time part to ensure we compare dates fairly
+        now.setHours(0,0,0,0);
+        billingDate.setHours(0,0,0,0);
 
+        if (now > billingDate) {
+            normalizedCompany.status = 'suspended'; // Temporarily suspend until pay
+        }
+    }
+
+    updateCompanyState(normalizedCompany);
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('current_company_session');
+    setCurrentCompany(null);
+    setMasterView('admin'); // Reset view on logout
+  };
+
+  const handleSimulateApproval = async () => {
+      if (currentCompany) {
+          const updated = { ...currentCompany, status: 'waiting_payment' as const };
+          await updateCompanyState(updated);
+      }
+  };
+
+  const handleSubscribe = async (plan: 'monthly' | 'yearly') => {
+      if (currentCompany) {
+          const now = new Date();
+          // Add 30 days for monthly, 365 for yearly
+          const daysToAdd = plan === 'monthly' ? 30 : 365;
+          now.setDate(now.getDate() + daysToAdd);
+          
+          const updated: Company = { 
+              ...currentCompany, 
+              status: 'active',
+              plan: plan,
+              nextBillingDate: now.toISOString()
+          };
+          
+          // This updates state and Supabase
+          await updateCompanyState(updated);
+      }
+  }
+
+  if (!currentCompany) {
+    return <Auth onLogin={handleLogin} />;
+  }
+
+  const isMaster = currentCompany.email === MASTER_EMAIL;
+
+  // --- MASTER ADMIN ROUTE ---
+  // If the logged-in user email matches the MASTER_EMAIL config AND they are in 'admin' view
+  if (isMaster && masterView === 'admin') {
+      return (
+        <MasterDashboard 
+            adminUser={currentCompany} 
+            onLogout={handleLogout} 
+            onSwitchToApp={() => setMasterView('app')}
+        />
+      );
+  }
+
+  // Flow Control based on Company Status
+  // Note: Master Admin bypasses these checks to access the App View directly
+  
+  // 1. Pending Approval (Admin check)
+  if (!isMaster && currentCompany.status === 'pending_approval') {
+      return <ApprovalPending company={currentCompany} onSimulateApproval={handleSimulateApproval} onLogout={handleLogout} />;
+  }
+
+  // 2. Waiting Payment or Suspended (Overdue)
+  if (!isMaster && (currentCompany.status === 'waiting_payment' || currentCompany.status === 'suspended')) {
+      return <Subscription company={currentCompany} onSubscribe={handleSubscribe} onLogout={handleLogout} />;
+  }
+
+  // 3. Active - Show Dashboard
   return (
-    <div className="min-h-screen bg-gray-900 font-sans">
-      <header className="bg-gray-800 shadow-lg shadow-black/20">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <h1 className="text-2xl md:text-3xl font-bold text-white text-center tracking-wider flex items-center justify-center gap-3">
-            <Martini className="text-orange-400" size={32} />
-            CalculaDrink
-          </h1>
-          <p className="text-center text-gray-400 mt-1">Calculadora de Custos e Lucratividade para Coquetelaria</p>
-        </div>
-      </header>
-      
-      <main className="container mx-auto p-4 sm:p-6 lg:p-8">
-        <div className="bg-gray-900 border-b border-gray-700 mb-6">
-          {/* FIX: Complete the nav tag and its children */}
-          <nav className="flex -mb-px">
-            <TabButton tab="simulator" label="Simulador" icon={<Calculator size={18} />} />
-            <TabButton tab="events" label="Eventos" icon={<Calendar size={18} />} />
-            <TabButton tab="drinks" label="Drinks" icon={<Martini size={18} />} />
-            <TabButton tab="ingredients" label="Insumos" icon={<Droplets size={18} />} />
-            <TabButton tab="stock" label="Estoque" icon={<Package size={18} />} />
-          </nav>
-        </div>
-        {renderContent()}
-      </main>
-    </div>
+    <Dashboard 
+        key={currentCompany.id} 
+        company={currentCompany} 
+        onLogout={handleLogout}
+        isMasterAdmin={isMaster}
+        onSwitchToAdmin={() => setMasterView('admin')}
+    />
   );
 };
 
-// FIX: Add default export for the App component
 export default App;

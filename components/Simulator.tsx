@@ -1,23 +1,28 @@
+
 import React, { useState, useMemo } from 'react';
-import type { Drink, Ingredient, StaffMember, Event } from '../types.ts';
-import { Plus, Trash2, Users, Target, BarChart2, Save, X, Clock } from 'lucide-react';
+import type { Drink, Ingredient, StaffMember, Event, Company } from '../types.ts';
+import { Plus, Trash2, Users, Target, BarChart2, Save, X, Clock, RotateCcw } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
+import { useLocalStorage } from '../hooks/useLocalStorage.ts';
 
 interface SimulatorProps {
   drinks: Drink[];
   ingredients: Ingredient[];
   setEvents: React.Dispatch<React.SetStateAction<Event[]>>;
+  company: Company;
 }
 
-const Simulator: React.FC<SimulatorProps> = ({ drinks, ingredients, setEvents }) => {
-  const [selectedDrinks, setSelectedDrinks] = useState<string[]>([]);
-  const [numAdults, setNumAdults] = useState<number>(40);
-  const [numChildren, setNumChildren] = useState<number>(10);
-  const [eventDuration, setEventDuration] = useState<number>(4); // in hours
-  const [staff, setStaff] = useState<StaffMember[]>([]);
-  const [newStaffMember, setNewStaffMember] = useState({ role: '', cost: 0 });
-  const [profitMargin, setProfitMargin] = useState<number>(100);
+const Simulator: React.FC<SimulatorProps> = ({ drinks, ingredients, setEvents, company }) => {
+  // Persist Simulation State using useLocalStorage prefixed with company ID
+  const [selectedDrinks, setSelectedDrinks] = useLocalStorage<string[]>(`${company.id}_sim_selectedDrinks`, []);
+  const [numAdults, setNumAdults] = useLocalStorage<number>(`${company.id}_sim_numAdults`, 40);
+  const [numChildren, setNumChildren] = useLocalStorage<number>(`${company.id}_sim_numChildren`, 10);
+  const [eventDuration, setEventDuration] = useLocalStorage<number>(`${company.id}_sim_eventDuration`, 4); // in hours
+  const [staff, setStaff] = useLocalStorage<StaffMember[]>(`${company.id}_sim_staff`, []);
+  const [profitMargin, setProfitMargin] = useLocalStorage<number>(`${company.id}_sim_profitMargin`, 100);
 
+  // Temporary UI state (doesn't need persistence)
+  const [newStaffMember, setNewStaffMember] = useState({ role: '', cost: 0 });
   const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
   const [newEventDetails, setNewEventDetails] = useState({ name: '', startDateTime: '', endDateTime: '' });
 
@@ -125,6 +130,7 @@ const Simulator: React.FC<SimulatorProps> = ({ drinks, ingredients, setEvents })
         numAdults: numAdults,
         numChildren: numChildren,
         selectedDrinks: selectedDrinks,
+        staff: staff, // Save current staff configuration to event
         simulatedCosts: costs,
     };
 
@@ -132,6 +138,23 @@ const Simulator: React.FC<SimulatorProps> = ({ drinks, ingredients, setEvents })
     
     setIsSaveModalOpen(false);
     setNewEventDetails({ name: '', startDateTime: '', endDateTime: '' });
+    
+    // Optional: We could reset the simulator here, but often users want to keep it to make another version
+    // If reset needed:
+    // setSelectedDrinks([]);
+    // setStaff([]);
+  };
+
+  const handleClearSimulation = () => {
+    if (window.confirm("Tem certeza que deseja limpar todos os dados da simulação atual?")) {
+        setSelectedDrinks([]);
+        setNumAdults(40);
+        setNumChildren(10);
+        setEventDuration(4);
+        setStaff([]);
+        setProfitMargin(100);
+        setNewStaffMember({ role: '', cost: 0 });
+    }
   };
 
   const chartData = [
@@ -142,6 +165,18 @@ const Simulator: React.FC<SimulatorProps> = ({ drinks, ingredients, setEvents })
 
   return (
     <>
+      <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
+         <h2 className="text-2xl font-bold text-white hidden sm:block">Simulador de Custos</h2>
+         <button 
+            onClick={handleClearSimulation}
+            className="flex items-center gap-2 px-4 py-2 bg-gray-700 text-gray-300 rounded-md hover:bg-gray-600 hover:text-white transition-colors border border-gray-600 w-full sm:w-auto justify-center"
+            title="Resetar todos os campos para o padrão"
+         >
+            <RotateCcw size={18} />
+            Limpar Simulação
+         </button>
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Coluna de Configuração */}
         <div className="lg:col-span-1 space-y-6">
@@ -266,7 +301,7 @@ const Simulator: React.FC<SimulatorProps> = ({ drinks, ingredients, setEvents })
                 </div>
                 <div className="flex justify-between items-center p-3 bg-gray-700/30 rounded-md">
                     <span className="font-medium text-gray-300">Custo Operacional</span>
-                    <span className="font-bold text-lg text-amber-400">{formatCurrency(costs.operationalCost)}</span>
+                    <span className="font-bold text-amber-400">{formatCurrency(costs.operationalCost)}</span>
                 </div>
                 <div className="flex justify-between items-center p-3 bg-gray-700/30 rounded-md">
                     <span className="font-medium text-gray-300">Lucro Estimado</span>
