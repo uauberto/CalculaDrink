@@ -159,8 +159,8 @@ const DrinkManager: React.FC<DrinkManagerProps> = ({ drinks, setDrinks, ingredie
             const ingNameMap = new Map(ingredients.map(i => [i.name.toLowerCase(), i.id]));
 
             for (const row of results.data as any[]) {
-                const drinkName = row['Drink'] || row['drink'];
-                const ingName = row['Insumo'] || row['insumo'];
+                const drinkName = (row['Drink'] || row['drink']) as string;
+                const ingName = (row['Insumo'] || row['insumo']) as string;
                 const qty = parseFloat(row['Quantidade'] || row['quantidade']);
                 
                 if (drinkName && ingName && qty > 0) {
@@ -287,23 +287,4 @@ const DrinkManager: React.FC<DrinkManagerProps> = ({ drinks, setDrinks, ingredie
                         </select>
                         <input type="number" placeholder="Qtd" value={r.quantity || ''} onChange={e => handleRecipeChange(index, 'quantity', e.target.value)} className="w-24 bg-gray-600 text-white border border-gray-500 rounded-md px-3 py-2" />
                         <span className="text-gray-400 w-8">{getIngredientInfo(r.ingredientId)?.unit}</span>
-                        <button onClick={() => handleRemoveIngredientFromRecipe(index)} className="p-2 text-red-400 hover:text-red-300"><Trash2 size={18} /></button>
-                    </div>
-                ))}
-                <button onClick={handleAddIngredientToRecipe} disabled={ingredients.length === 0} className="mt-2 flex items-center gap-2 px-3 py-1.5 text-sm bg-gray-600 text-white rounded-md hover:bg-gray-500">
-                    <Plus size={16} /> Adicionar Insumo
-                </button>
-              </div>
-            </div>
-            <div className="flex justify-end gap-3 mt-auto p-4 border-t border-gray-700 bg-gray-800 rounded-b-lg">
-                <button onClick={closeModal} className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-500">Cancelar</button>
-                <button onClick={handleSaveDrink} className="px-4 py-2 bg-orange-600 text-white rounded-md hover:bg-orange-500">{editingDrink ? 'Salvar' : 'Adicionar'}</button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-};
-
-export default DrinkManager;
+                        <button onClick={() => handle
