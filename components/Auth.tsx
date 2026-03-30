@@ -202,6 +202,8 @@ const Auth: React.FC<AuthProps> = ({ onLogin }) => {
       } catch (error: any) {
           if (error.message === "TABELAS_NAO_ENCONTRADAS") {
               setLoginError("⚠️ ERRO DE CONFIGURAÇÃO: Tabelas não encontradas. Verifique o Console (F12).");
+          } else if (error.message === "Senha incorreta.") {
+              setLoginError("Senha incorreta.");
           } else {
               console.error("Login error:", error);
               setLoginError("Erro ao tentar fazer login. Verifique sua conexão.");

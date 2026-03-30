@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { SUPABASE_URL, SUPABASE_ANON_KEY } from '../config.ts';
+import { SUPABASE_URL, SUPABASE_ANON_KEY, MASTER_EMAIL } from '../config.ts';
 import type { Company, Ingredient, Drink, Event, StaffMember, DrinkIngredient } from '../types.ts';
 
 // Cria uma única instância do cliente Supabase
@@ -20,7 +20,7 @@ create table if not exists companies (
   created_at timestamp with time zone default now(),
   type text default 'PJ',
   document text,
-  email text,
+  email text unique,
   phone text,
   responsible_name text,
   role text default 'admin',
@@ -106,6 +106,11 @@ create table if not exists event_staff (
 create index if not exists idx_ingredients_company on ingredients(company_id);
 create index if not exists idx_drinks_company on drinks(company_id);
 create index if not exists idx_events_company on events(company_id);
+
+-- 9. Inserir Usuário Administrador Master Padrão
+insert into companies (name, email, document, password, status, role, type, responsible_name)
+values ('Administrador Master', '${MASTER_EMAIL}', '00.000.000/0000-00', 'admin', 'active', 'master', 'PJ', 'Admin')
+on conflict (email) do nothing;
 `;
 
 const handleDatabaseError = (error: any, context: string) => {
@@ -146,12 +151,14 @@ export const api = {
 
         if (data.password && password) {
             if (data.password !== password) {
-                console.error("Senha incorreta.");
-                return null;
+                throw new Error("Senha incorreta.");
             }
         }
         return mapDatabaseToCompany(data);
       } catch (error: any) {
+        if (error.message === "Senha incorreta.") {
+            throw error;
+        }
         const isSetupError = handleDatabaseError(error, 'Login');
         if (isSetupError) throw new Error("TABELAS_NAO_ENCONTRADAS");
         return null;
@@ -381,6 +388,36 @@ export const api = {
   },
 
   admin: {
+      initMasterUser: async (): Promise<void> => {
+          try {
+              // Verifica se o usuário master já existe
+              const { data, error } = await supabase
+                  .from('companies')
+                  .select('id')
+                  .eq('email', MASTER_EMAIL)
+                  .maybeSingle();
+              
+              if (error) throw error;
+              
+              // Se não existe, cria
+              if (!data) {
+                  const { error: insertError } = await supabase.from('companies').insert({
+                      name: 'Administrador Master',
+                      email: MASTER_EMAIL,
+                      document: '00.000.000/0000-00',
+                      password: 'admin', // Senha padrão simples, o usuário deve trocar depois
+                      status: 'active',
+                      role: 'master',
+                      type: 'PJ',
+                      responsible_name: 'Admin'
+                  });
+                  if (insertError) throw insertError;
+                  console.log("Usuário Master criado com sucesso.");
+              }
+          } catch (error: any) {
+              console.error("Erro ao inicializar usuário master:", error);
+          }
+      },
       listAllCompanies: async (): Promise<Company[]> => {
           const { data, error } = await supabase.from('companies').select('*').order('created_at', { ascending: false });
           if (error) { handleDatabaseError(error, 'Admin List'); return []; }
