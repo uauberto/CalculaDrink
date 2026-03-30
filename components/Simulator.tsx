@@ -2,7 +2,6 @@
 import React, { useState, useMemo } from 'react';
 import type { Drink, Ingredient, StaffMember, Event, Company } from '../types.ts';
 import { Plus, Trash2, Users, Target, BarChart2, Save, X, Clock, RotateCcw } from 'lucide-react';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { useLocalStorage } from '../hooks/useLocalStorage.ts';
 
 interface SimulatorProps {
@@ -309,22 +308,28 @@ const Simulator: React.FC<SimulatorProps> = ({ drinks, ingredients, setEvents, c
                 </div>
             </div>
 
-            <div className="w-full h-80">
+            <div className="w-full mt-8">
               <h4 className="text-lg font-semibold mb-4 text-center text-gray-300">Composição do Preço Final</h4>
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={chartData} layout="vertical" margin={{ top: 5, right: 20, left: 20, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#4a5568" />
-                    <XAxis type="number" stroke="#a0aec0" tickFormatter={formatCurrency} />
-                    <YAxis type="category" dataKey="name" stroke="#a0aec0" width={80}/>
-                    <Tooltip
-                      cursor={{fill: 'rgba(113, 128, 150, 0.1)'}}
-                      contentStyle={{ backgroundColor: '#2d3748', border: '1px solid #4a5568', borderRadius: '0.5rem' }}
-                      formatter={(value: number) => formatCurrency(value)}
-                    />
-                    <Bar dataKey="value" barSize={35}/>
-                  </BarChart>
-                </ResponsiveContainer>
+              <div className="space-y-4">
+                {chartData.map((data, index) => {
+                  const percentage = costs.finalPrice > 0 ? (data.value / costs.finalPrice) * 100 : 0;
+                  return (
+                    <div key={index} className="flex items-center gap-4">
+                      <div className="w-24 text-sm text-gray-400 text-right">{data.name}</div>
+                      <div className="flex-1 h-8 bg-gray-700 rounded-full overflow-hidden relative">
+                        <div 
+                          className="h-full rounded-full transition-all duration-500 ease-out"
+                          style={{ width: `${percentage}%`, backgroundColor: data.fill }}
+                        />
+                      </div>
+                      <div className="w-32 text-sm font-medium text-white">
+                        {formatCurrency(data.value)}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
+            </div>
 
           </div>
         </div>
